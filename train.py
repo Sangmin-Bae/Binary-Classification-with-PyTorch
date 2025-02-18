@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from model import MyModel
+from trainer import Trainer
 
 from utils import load_data
 
@@ -15,6 +16,7 @@ def argument_parser():
     p.add_argument("--gpu_id", type=int, default=0 if torch.cuda.is_available() else -1)
     p.add_argument("--n_epochs", type=int, default=200000, help="number_of_epochs")
     p.add_argument("--lr", type=float, default=1e-2, help="learning_rate")
+    p.add_argument("--print_interval", type=int, default=10000, help="number_of_print_interval")
 
     config = p.parse_args()
 
@@ -40,9 +42,16 @@ def main(config):
     print(f"crit : {crit}")
 
     # Train
+    trainer = Trainer(model, optimizer, crit)
 
-    # Save Model
-    pass
+    trainer.train(x.to(device), y.to(device), config)
+
+    # Save best model weights
+    torch.save({
+        "model": trainer.model.state_dict(),
+        "opt": optimizer.state_dict(),
+        "config": config
+    }, config.model_fn)
 
 if __name__ == "__main__":
     config = argument_parser()

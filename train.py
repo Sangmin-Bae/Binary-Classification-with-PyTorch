@@ -1,6 +1,10 @@
 import argparse
 
 import torch
+import torch.nn as nn
+import torch.optim as optim
+
+from model import MyModel
 
 from utils import load_data
 
@@ -19,7 +23,7 @@ def argument_parser():
 def main(config):
     # Device Check
     device = torch.device('cpu') if config.gpu_id < 0 else torch.device(f"cuda:{config.gpu_id}")
-    print(f"Device: {device}")
+    print(f"Device : {device}")
 
     # Load Data
     x, y = load_data(is_full=False)
@@ -27,6 +31,13 @@ def main(config):
     print(f"Target Data Shape : {y.shape}")
 
     # Define Model
+    model = MyModel(input_size=x.size(-1), output_size=y.size(-1)).to(device)
+    optimizer = optim.SGD(model.parameters(), lr=config.lr)
+    crit = nn.BCELoss()
+
+    print(f"Model : {model}")
+    print(f"Optimizer : {optimizer}")
+    print(f"crit : {crit}")
 
     # Train
 

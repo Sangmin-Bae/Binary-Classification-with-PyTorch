@@ -1,24 +1,29 @@
 import argparse
+import yaml
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from model import MyModel
+from model.fc_model import FullyConnectedClassifier
 from trainer import Trainer
 
 from utils import load_data
+from utils import split_data
+from utils import preprocessing_data
 
 def argument_parser():
     p = argparse.ArgumentParser()
 
-    p.add_argument("--model_fn", required=True, help="model_file_name")
-    p.add_argument("--gpu_id", type=int, default=0 if torch.cuda.is_available() else -1)
-    p.add_argument("--n_epochs", type=int, default=200000, help="number_of_epochs")
-    p.add_argument("--lr", type=float, default=1e-2, help="learning_rate")
-    p.add_argument("--print_interval", type=int, default=10000, help="number_of_print_interval")
+    p.add_argument("--config", type=str, required=True, help="config_file_path")
 
-    config = p.parse_args()
+    args = p.parse_args()
+
+    return args
+
+def load_config(path):
+    with open(path) as f:
+        config = argparse.Namespace(**yaml.safe_load(f))
 
     return config
 
@@ -28,23 +33,29 @@ def main(config):
     print(f"Device : {device}")
 
     # Load Data
-    x, y = load_data(is_full=False)
-    print(f"Train Data Shape : {x.shape}")
-    print(f"Target Data Shape : {y.shape}")
+    x, y = load_data()
+    x, y = split_data(x, y, device, config.train_ratio)
+    x, y = preprocessing_data(x, y, device, is_train=True)
+
+    print(f"Train: {x[0].shape} {y[0].shape}")
+    print(f"Valid: {x[1].shape} {y[1].shape}")
 
     # Define Model
-    model = MyModel(input_size=x.size(-1), output_size=y.size(-1)).to(device)
-    optimizer = optim.SGD(model.parameters(), lr=config.lr)
-    crit = nn.BCELoss()
+    model = FullyConnectedClassifier(input_size=x[0].size(-1), output_size=y[0].size(-1)).to(device)
+    optimizer = optim.Adam(model.parameters())
 
     print(f"Model : {model}")
     print(f"Optimizer : {optimizer}")
-    print(f"crit : {crit}")
 
     # Train
-    trainer = Trainer(model, optimizer, crit)
+    trainer = Trainer(model, optimizer)
 
-    trainer.train(x.to(device), y.to(device), config)
+    trainer.train(
+        train_data=(x[0], y[0]),
+        valid_data=(x[1], y[1]),
+        config=config,
+        to_be_shown=False
+    )
 
     # Save best model weights
     torch.save({
@@ -54,5 +65,6 @@ def main(config):
     }, config.model_fn)
 
 if __name__ == "__main__":
-    config = argument_parser()
+    args = argument_parser()
+    config = load_config(args.config)
     main(config)
